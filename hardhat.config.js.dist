@@ -1,0 +1,18 @@
+require("@nomicfoundation/hardhat-toolbox");
+require("hardhat-gas-reporter");
+require("@nomicfoundation/hardhat-chai-matchers");
+
+/** @type import('hardhat/config').HardhatUserConfig */
+module.exports = {
+  solidity: "0.8.20",
+  networks : {
+    hardhat: {
+      forking: {
+        url: "https://eth-mainnet.alchemyapi.io/v2/YOUR-API-KEY-HERE",
+        //blockNumber: 14487179 // if you want to home in on a specific block
+        blockNumber: 17727802
+      },
+      allowUnlimitedContractSize: true
+    },
+  }
+};

@@ -21,6 +21,12 @@ All without the need for a DAO, only this simple contract.
  by burning the token can resume. This time everyone will receive 10% extra 
  ETH per each token burned.
 
+# Using this repo
+
+It's using nodejs and Hardhat, the test is run against a forked Mainnet.
+
+rename `hardhat.config.js.dist` to `hardhat.config.js` and paste in your Alchemy API where it says 'YOUR-API-KEY-HERE'
+
 ```shell
 npx hardhat help
 npx hardhat test
