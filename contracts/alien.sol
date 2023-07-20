@@ -190,7 +190,7 @@ contract AlienFlip {
         return true;
     }
     /**
-    * @dev burn some STOG tokens
+    * @dev burn some tokens
     * @param _amount The amount to burn
     */
     function _burn(uint256 _amount) internal {
@@ -212,7 +212,7 @@ contract AlienFlip {
     }
 
     /**
-    * @dev _transfer transfers STOG tokens from one address to another without checking allowance,
+    * @dev _transfer transfers tokens from one address to another without checking allowance,
        internal only
     * @param _from address The address which you want to send tokens from
     * @param _to address The address which you want to transfer to
