@@ -51,8 +51,27 @@ describe("Test Alien flip", function () {
     it("procure the punk", async function () {
         await expect(alien.procure(5905)).to.be.revertedWith("please use offerPunkForSaleToAddress");
         await punks.connect(og).offerPunkForSaleToAddress(5905, peth("5000"), await alien.getAddress());
-        await expect(alien.procure(5905)); // should not throw now
+        await expect(await alien.procure(5905)); // should not throw now
+        expect(await punks.punkIndexToAddress(5905)).to.equal(await alien.getAddress()); // alien contract is the owner now
+        await expect(alien.connect(alice).burn(peth("1000"))).to.be.revertedWith("not flipped");// we cannot burn since the alien has not been flipped
+        let stats = await alien.getStats(await owner.getAddress());
+        console.log(stats);
+        expect(stats[0]).to.equal(peth("5000"));
     })
+
+    it("sell the punk", async function () {
+        await expect (await punks.connect(satoshi).buyPunk(5905, {value : peth("5500")})).to.emit(punks, "PunkBought");// Satoshi bought a punk
+        await expect(await alien.burn(await alien.balanceOf(await owner.getAddress()))).to.emit(alien, "Transfer").withArgs(await owner.getAddress(), await alien.getAddress(), peth("1000"));
+        await expect(await alien.connect(simp).burn(await alien.balanceOf(await simp.getAddress()))).to.emit(alien, "Transfer").withArgs(await simp.getAddress(), await alien.getAddress(), peth("1000"));
+        await expect(await alien.connect(elizabeth).burn(await alien.balanceOf(await elizabeth.getAddress()))).to.emit(alien, "Transfer").withArgs(await elizabeth.getAddress(), await alien.getAddress(), peth("1000"));
+        await expect(await alien.connect(alice).burn(await alien.balanceOf(await alice.getAddress()))).to.emit(alien, "Transfer").withArgs(await alice.getAddress(), await alien.getAddress(), peth("1000"));
+        await expect(await alien.connect(bob).burn(await alien.balanceOf(await bob.getAddress()))).to.emit(alien, "Transfer").withArgs(await bob.getAddress(), await alien.getAddress(), peth("1000"));
+
+        let bal = await ethers.provider.getBalance(alien);
+        expect(bal).to.equal(0n); // all ETH withdrawn
+
+
+    });
 });
 
 

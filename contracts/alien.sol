@@ -28,7 +28,7 @@
                    \__\/
 */
 pragma solidity ^0.8.20;
-import "hardhat/console.sol";
+//import "hardhat/console.sol";
 contract AlienFlip {
     mapping (uint16 => bool) public aliens;
     enum State {
@@ -59,9 +59,13 @@ contract AlienFlip {
     * @dev accept ETH, issue token for ETH, 1:1
     */
     receive() external payable {
+        if (msg.sender == address(punks)) {
+            // we received ETH after a punk sale.
+            return;
+        }
         require(state == State.Procurement, "invalid state");  // while in the Procurement state
         require(msg.value > 0, "need ETH");
-        _mint(msg.sender, msg.value);
+        _mint(msg.sender, msg.value);                          // issue a debt token to the sender
     }
 
     /**
@@ -120,17 +124,20 @@ contract AlienFlip {
     function getStats(address _user) external view returns (
         uint256[] memory // ret
     ) {
-        uint[] memory ret = new uint[](26);
+        uint[] memory ret = new uint[](9);
         ret[0] = totalSupply;
         ret[1] = balanceOf[_user];
         ret[2] = theAlien;
         ret[3] = uint256(state);
         ret[4] = address(this).balance;
         ret[5] = uint(uint160(punks.punkIndexToAddress(theAlien)));
-        (,,,ret[7],)  = punks.punksOfferedForSale(theAlien);
-        return ret; // uint(uint160(ret[8]))  uint256(ret[6])
+        bool isForSale;
+        address seller;
+        (isForSale,,seller,ret[7] /*minValue*/,)  = punks.punksOfferedForSale(theAlien);
+        ret[6] = isForSale ? 1 : 0;
+        ret[8] = uint256(uint160(seller));
+        return ret;
     }
-
 
     /**
     * ERC20 functionality
