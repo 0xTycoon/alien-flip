@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Author: tycoon.eth
 // Description: Fundraise, buy Alien, flip it, redistribute funds. All without
-// the need for a DAO, only this simple contract.
+// the need for a DAO, only this simple contract. This is the ERC20 version
 /*
 
       ___           ___                    ___           ___
@@ -29,7 +29,7 @@
 */
 pragma solidity ^0.8.20;
 //import "hardhat/console.sol";
-contract AlienFlip {
+contract AlienFlip20 {
     mapping (uint16 => bool) public aliens;
     enum State {
         Procurement, // raising ETH & buying an Alien
@@ -40,7 +40,12 @@ contract AlienFlip {
     State public state;                 // current state
     ICryptoPunk immutable public punks; // CryptoPunks contract
     uint256 immutable public multiplier;// the multiplier value used to increase the price
-
+    //IERC20 stETH immutable public
+    address immutable public token;     // the token to use
+    IWstETH immutable public wstETH;
+    address constant stETH = 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84;
+    // stETH address 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
+    // wstETH address 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
     constructor() {
         aliens[635] = true;
         aliens[2890] = true;
@@ -53,19 +58,25 @@ contract AlienFlip {
         aliens[7804] = true;
         punks = ICryptoPunk(address(0xb47e3cd837dDF8e4c57F05d70Ab865de6e193BBB));
         multiplier = 10;
+        token = stETH;
+        wstETH = IWstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
+        if (token == stETH) {
+            IERC20(token).approve(address(wstETH), type(uint256).max); // approve wstETH wrapper
+        }
     }
 
+
     /**
-    * @dev accept ETH, issue token for ETH, 1:1
+    * @dev deposit a token. Mint some tokens as receipt
     */
-    receive() external payable {
-        if (msg.sender == address(punks)) {
-            // we received ETH after a punk sale.
-            return;
+    function deposit(uint256 _amount) {
+        require(state == State.Procurement, "invalid state");          // while in the Procurement state
+        require(_amount > 0, "need _amount > 0");
+        _ERC20TransferFrom(token, msg.sender, address(this), _amount); // reverts if failed.
+        if (token == stETH) {
+            _amount = wstETH.wrap(_amount);                            // convert stETH to wstETH
         }
-        require(state == State.Procurement, "invalid state");  // while in the Procurement state
-        require(msg.value > 0, "need ETH");
-        _mint(msg.sender, msg.value);                          // issue a debt token to the sender
+        _mint(msg.sender, _amount);                                    // issue a debt token to the sender
     }
 
     /**
@@ -96,7 +107,7 @@ contract AlienFlip {
         _transfer(msg.sender, address(this), _amount);          // take their token
         _burn(_amount);                                         // burn sender's token
         (bool sent, ) = msg.sender.call{value: _amount +
-            (_amount / multiplier)}("");                        // send back their deposit + profit
+        (_amount / multiplier)}("");                        // send back their deposit + profit
         require(sent, "failed to send ETH");
     }
 
@@ -115,6 +126,7 @@ contract AlienFlip {
         require(onlySellTo == address(this), "please use offerPunkForSaleToAddress");
         punks.buyPunk{value:minValue}(punkId);
         require(punks.punkIndexToAddress(punkId) == address(this), "nope");// did we get it?
+        _ERC20Transfer(IERC20(token), address _to, uint256 _amount);
         theAlien = punkId;
         state = State.Flip;                                                // we will now try switch to flipping it
         uint newPrice = minValue + (minValue / multiplier);                // sell for 10% more
@@ -137,6 +149,24 @@ contract AlienFlip {
         ret[6] = isForSale ? 1 : 0;
         ret[8] = uint256(uint160(seller));
         return ret;
+    }
+
+    function _ERC20Transfer(address _token, address _to, uint256 _amount) internal {
+        bytes memory payload = abi.encodeWithSelector(IERC20(_token).transfer.selector, _to, _amount);
+        (bool success, bytes memory returndata) = _token.call(payload);
+        require(success, "_ERC20Transfer failed");
+        if (returndata.length > 0) { // check return value if it was returned
+            require(abi.decode(returndata, (bool)), "_ERC20Transfer failed did not succeed");
+        }
+    }
+
+    function _ERC20TransferFrom(address _token, address _from, address _to, uint256 _amount) internal {
+        bytes memory payload = abi.encodeWithSelector(IERC20(_token).transferFrom.selector, _from, _to, _amount);
+        (bool success, bytes memory returndata) = _token.call(payload);
+        require(success, "_ERC20TransferFrom failed");
+        if (returndata.length > 0) { // check return value if it was returned
+            require(abi.decode(returndata, (bool)), "_ERC20TransferFrom did not succeed");
+        }
     }
 
     /**
@@ -259,4 +289,20 @@ interface ICryptoPunk {
     function offerPunkForSaleToAddress(uint punkIndex, uint minSalePriceInWei, address toAddress) external;
     function offerPunkForSale(uint punkIndex, uint minSalePriceInWei) external;
     function withdraw() external;
+}
+interface IWstETH is IERC20 {
+    function stEthPerToken() external view returns (uint256);
+    function getStETHByWstETH(uint256 _wstETHAmount) external view returns (uint256);
+    function unwrap(uint256 _wstETHAmount) external returns (uint256);
+    function wrap(uint256 _stETHAmount) external returns (uint256);
+}
+interface IERC20 {
+    function totalSupply() external view returns (uint256);
+    function balanceOf(address account) external view returns (uint256);
+    function transfer(address recipient, uint256 amount) external returns (bool);
+    function allowance(address owner, address spender) external view returns (uint256);
+    function approve(address spender, uint256 amount) external returns (bool);
+    function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
 }
