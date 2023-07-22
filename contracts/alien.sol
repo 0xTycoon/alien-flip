@@ -78,10 +78,11 @@ contract AlienFlip {
     * @param _amount how much tokens to burn
     */
     function burn(uint256 _amount) external {
+        bool sent;
         if (state == State.Procurement) {
             _transfer(msg.sender, address(this), _amount);      // take their token
             _burn(_amount);                                     // burn sender's token
-            (bool sent, ) = msg.sender.call{value: _amount}("");// send back ETH
+            (sent, ) = msg.sender.call{value: _amount}("");// send back ETH
             require(sent, "failed to send ETH");
             return;                                             // end
         }
@@ -95,7 +96,7 @@ contract AlienFlip {
         require(state == State.Distribute, "not State.Distribute");
         _transfer(msg.sender, address(this), _amount);          // take their token
         _burn(_amount);                                         // burn sender's token
-        (bool sent, ) = msg.sender.call{value: _amount +
+        (sent, ) = msg.sender.call{value: _amount +
             (_amount / multiplier)}("");                        // send back their deposit + profit
         require(sent, "failed to send ETH");
     }
