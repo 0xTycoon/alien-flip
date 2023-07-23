@@ -82,7 +82,7 @@ contract AlienFlip {
         if (state == State.Procurement) {
             _transfer(msg.sender, address(this), _amount);      // take their token
             _burn(_amount);                                     // burn sender's token
-            (sent, ) = msg.sender.call{value: _amount}("");// send back ETH
+            (sent, ) = msg.sender.call{value: _amount}("");     // send back ETH
             require(sent, "failed to send ETH");
             return;                                             // end
         }

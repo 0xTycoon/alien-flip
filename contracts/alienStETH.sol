@@ -1,8 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Author: tycoon.eth
 // Description: Fundraise, buy Alien, flip it, redistribute funds. All without
-// the need for a DAO, only this simple contract. This is stETH version
-// DRAFT ONLY *** NOT TESTED ** DO NOT DEPLOY ***
+// the need for a DAO, only this simple contract. This is stETH version.
 /*
 
       ___           ___                    ___           ___
@@ -67,40 +66,35 @@ contract AlienFlipStETH {
     }
 
     /**
-    * @dev accept ETH, issue token for ETH, 1:1
+    * @dev accept ETH, convert to wstETH issue token for ETH, 1:1
     */
     receive() external payable {
         if (msg.sender == address(punks)) {
             // we received ETH after a punk sale.
             return;
         }
-        require(state == State.Procurement, "invalid state");  // while in the Procurement state
+        require(state == State.Procurement, "invalid state");   // while in the Procurement state
         require(msg.value > 0, "need ETH");
-        uint256 _amount = stETH.submit{value:msg.value}(address(0)); // generate stETH
-        _amount = wstETH.wrap(_amount);                            // convert stETH to wstETH
-        _mint(msg.sender, _amount);                          // issue a debt token to the sender
+        uint256 amount = stETH.balanceOf(address(this));
+        (bool ok, ) = address(stETH).call{value: msg.value}("");// convert ETH to stETH
+        require (ok);
+        amount = stETH.balanceOf(address(this)) - amount;
+        amount = wstETH.wrap(amount);                           // convert stETH to wstETH
+        _mint(msg.sender, amount);                              // issue a debt token to the sender
     }
-
 
     /**
     * @dev deposit stETH, change to wstETH, mint some tokens as receipt
     */
     function depositStETH(uint256 _amount) external {
-        require(state == State.Procurement, "invalid state");          // while in the Procurement state
+        require(state == State.Procurement, "invalid state"); // while in the Procurement state
         require(_amount > 0, "need _amount > 0");
-        require(stETH.transferFrom(msg.sender, address(this), _amount), "transfer failed");
-        _amount = wstETH.wrap(_amount);                            // convert stETH to wstETH
-        _mint(msg.sender, _amount);                                    // issue a debt token to the sender
-    }
-
-    function depositWETH(uint256 _amount) external {
-        require(state == State.Procurement, "invalid state");          // while in the Procurement state
-        require(_amount > 0, "need _amount > 0");
-        require(wETH.transferFrom(msg.sender, address(this), _amount), "transfer failed");
-        wETH.withdraw(_amount); // get the ETH
-        _amount = stETH.submit{value:_amount}(address(0)); // generate stETH
-        _amount = wstETH.wrap(_amount);                            // convert stETH to wstETH
-        _mint(msg.sender, _amount);
+        require(stETH.transferFrom(
+            msg.sender,
+            address(this),
+            _amount), "transfer failed");
+        _amount = wstETH.wrap(_amount);                       // convert stETH to wstETH
+        _mint(msg.sender, _amount);                           // issue a debt token to the sender
     }
 
     /**
@@ -114,61 +108,72 @@ contract AlienFlipStETH {
     */
     function burn(uint256 _amount) external {
         if (state == State.Procurement) {
-            _transfer(msg.sender, address(this), _amount);      // take their token
-            _burn(_amount);                                     // burn sender's token
-            _amount = wstETH.unwrap(_amount);                   // unwrap to stETH
-            stETH.transfer(msg.sender, _amount);                // return the stETH
-            return;                                             // end
+            _transfer(msg.sender, address(this), _amount);       // take their token
+            _burn(_amount);                                      // burn sender's token
+            _amount = wstETH.unwrap(_amount);                    // unwrap to stETH
+            stETH.transfer(msg.sender, _amount);                 // return the stETH
+            return;                                              // end
         }
         if (state == State.Flip) {
             require(
                 punks.punkIndexToAddress(theAlien) != address(this),
-                "not flipped");                                 // sold the Alien?
-            punks.withdraw();                                   // take the ETH out
-            wstETH.wrap(stETH.submit{value:address(this).balance}(address(0)));   // deposit all ETH
-            state = State.Distribute;                           // move to the distribution state
+                "not flipped");                                  // sold the Alien?
+            uint256 revenue = address(this).balance;
+            punks.withdraw();                                    // take the ETH out
+            revenue = address(this).balance - revenue;           // work out how much ETH we got
+            uint256 bal = stETH.balanceOf(address(this));
+            (bool ok, ) = address(stETH).call{value: revenue}("");// convert ETH to stETH
+            require (ok);
+            bal = stETH.balanceOf(address(this)) - bal;
+            wstETH.wrap(bal);                                    // wrap stETH to wstETH
+            state = State.Distribute;                            // move to the distribution state
         }
         require(state == State.Distribute, "not State.Distribute");
-        _transfer(msg.sender, address(this), _amount);          // take their token
-        _burn(_amount);                                         // burn sender's token
-        // send back their deposit + profit
+        uint256 bal = balanceOf[msg.sender];
+        _transfer(msg.sender, address(this), _amount);           // take their share token
         require(stETH.transfer(
             msg.sender,
-            wstETH.unwrap(_amount * multiplier)
-        ), "failed to send ETH");                               //unwrap & send stETH
+            wstETH.unwrap((_amount * 1e13 / totalSupply) *
+            wstETH.balanceOf(address(this)) / 1e13)),
+            "failed to send stETH");                             // unwrap & send their share stETH
+        _burn(_amount);                                          // burn sender's share token
     }
 
+
     /**
-    * @dev procure canbe called by anyone.
+    * @dev procure can be called by anyone.
     *   The function will attempt to acquire the punk. If the acquisition is
     *   successful, the function will send the stETH payment to the seller.
     *   The seller must use "offerPunkForSaleToAddress" in order for the sale
     *   to work. The punk would need to be listed for a small amount of ETH,
     *   eg. 1 wei.
     */
-    function procure(uint16 punkId) external {
+    function procure(uint16 punkId) external payable  {
         require(state == State.Procurement, "invalid state");
         require(aliens[punkId] == true, "punkId not alien");
         address punkOwner = punks.punkIndexToAddress(punkId); // get the punk owner's address
-        (bool isForSale,,,uint minValue, address onlySellTo) = punks.punksOfferedForSale(punkId);
+        (bool isForSale,,,uint minValue,address onlySellTo) =
+            punks.punksOfferedForSale(punkId);
         require(isForSale == true, "punk not for sale");
-        require(minValue <= address(this).balance, "not enough effiriums");
-        require(onlySellTo == address(this), "please use offerPunkForSaleToAddress");
-
-        punks.buyPunk{value:minValue}(punkId); // buy a punk with minimal ETH
+        require(
+            onlySellTo == address(this),
+            "please use offerPunkForSaleToAddress"
+        );
+        require(minValue <= msg.value, "not enough effiriums");            // we need a small amount, eg 1 wei
+        punks.buyPunk{value:minValue}(punkId);                             // buy a punk with minimal ETH
         require(punks.punkIndexToAddress(punkId) == address(this), "nope");// did we get it?
-        uint256 amount = wstETH.unwrap(wstETH.balanceOf(address(this))); // unrwap wstETH to get stETH
-        require(stETH.transfer(punkOwner, amount), "failed to send stETH");// transfer the stETH payment to the seller
+        uint256 amount = wstETH.unwrap(wstETH.balanceOf(address(this)));   // unrwap wstETH to get stETH
+        require(stETH.transfer(punkOwner, amount), "failed to send stETH");// pay the stETH payment to the seller
         theAlien = punkId;
         state = State.Flip;                                                // we will now try switch to flipping it
-        uint newPrice = amount + (amount / multiplier);                // sell for 10% more
+        uint newPrice = amount + (amount / multiplier);                    // sell for 10% more
         punks.offerPunkForSale(punkId, newPrice);
     }
 
     function getStats(address _user) external view returns (
         uint256[] memory // ret
     ) {
-        uint[] memory ret = new uint[](9);
+        uint[] memory ret = new uint[](11);
         ret[0] = totalSupply;
         ret[1] = balanceOf[_user];
         ret[2] = theAlien;
@@ -180,16 +185,15 @@ contract AlienFlipStETH {
         (isForSale,,seller,ret[7] /*minValue*/,)  = punks.punksOfferedForSale(theAlien);
         ret[6] = isForSale ? 1 : 0;
         ret[8] = uint256(uint160(seller));
-        ret[9] = wstETH.getStETHByWstETH((balanceOf[_user])); // how much stETH _user has
+        ret[9] = wstETH.getStETHByWstETH(balanceOf[_user]); // how much stETH _user has
         ret[10] = wstETH.getStETHByWstETH(totalSupply); // total stETH offered by the contract
         return ret;
     }
 
-
     /**
     * ERC20 functionality
     */
-    string public constant name = "ALI3N Token";
+    string public constant name = "ALI3N Flip Share";
     string public constant symbol = "ALI3N";
     uint8 public constant decimals = 18;
     uint256 public totalSupply = 0;

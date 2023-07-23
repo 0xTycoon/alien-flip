@@ -35,7 +35,7 @@ describe("Test Alien flip", function () {
         supply = await alien.totalSupply();
         expect(supply).to.equal(peth("999.9")); // supply should decrease by 0.1
         await expect( alien.burn(peth("1000"))).to.emit(alien, "Transfer").to.be.reverted; // cannot burn more than we have
-        expect(await alien.transfer(await simp.getAddress(), peth("999.9"))).to.emit(alien, "Transfer").withArgs(await alien.getAddress(), await owner.getAddress(), await simp.getAddress()); // transfer token to simp
+        await expect(await alien.transfer(await simp.getAddress(), peth("999.9"))).to.emit(alien, "Transfer").withArgs(await owner.getAddress(), await simp.getAddress(), peth("999.9")); // transfer token to simp
         expect(await alien.connect(simp).burn(peth("999.9"))).to.emit(alien, "Transfer");
         supply = await alien.totalSupply();
         expect(supply).to.equal(peth("0"));
