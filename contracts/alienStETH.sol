@@ -41,11 +41,11 @@ contract AlienFlipStETH {
     ICryptoPunk immutable public punks; // CryptoPunks contract
     uint256 immutable public multiplier;// the multiplier value used to increase the price
     //IERC20 stETH immutable public
-    IWstETH immutable public wstETH;
-    IStETH immutable public stETH;
-    IwETH immutable public wETH;
-    // stETH address 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
-    // wstETH address 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
+    IWstETH immutable public wstETH;    // wstETH address 0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0
+    IStETH immutable public stETH;      // stETH address 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
+    IwETH immutable public wETH;        //
+
+
     constructor() {
         aliens[635] = true;
         aliens[2890] = true;
@@ -62,7 +62,6 @@ contract AlienFlipStETH {
         wstETH = IWstETH(0x7f39C581F595B53c5cb19bD0b3f8dA6c935E2Ca0);
         wETH = IwETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
         stETH.approve(address(wstETH), type(uint256).max); // approve wstETH wrapper
-        //wETH.approve(address(wstETH), type(uint256).max); // approve wstETH wrapper
     }
 
     /**
