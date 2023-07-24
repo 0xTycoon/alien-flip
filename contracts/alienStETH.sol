@@ -45,7 +45,6 @@ contract AlienFlipStETH {
     IStETH immutable public stETH;      // stETH address 0xae7ab96520DE3A18E5e111B5EaAb095312D7fE84
     IwETH immutable public wETH;        //
 
-
     constructor() {
         aliens[635] = true;
         aliens[2890] = true;
@@ -185,7 +184,7 @@ contract AlienFlipStETH {
         ret[6] = isForSale ? 1 : 0;
         ret[8] = uint256(uint160(seller));
         ret[9] = wstETH.getStETHByWstETH(balanceOf[_user]); // how much stETH _user has
-        ret[10] = wstETH.getStETHByWstETH(totalSupply); // total stETH offered by the contract
+        ret[10] = wstETH.getStETHByWstETH(totalSupply);     // total stETH offered by the contract
         return ret;
     }
 
