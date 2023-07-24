@@ -127,7 +127,6 @@ contract AlienFlipStETH {
             state = State.Distribute;                            // move to the distribution state
         }
         require(state == State.Distribute, "not State.Distribute");
-        uint256 bal = balanceOf[msg.sender];
         _transfer(msg.sender, address(this), _amount);           // take their share token
         require(stETH.transfer(
             msg.sender,
