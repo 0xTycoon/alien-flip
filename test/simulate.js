@@ -12,7 +12,6 @@ describe("Test NounsAlien", function () {
     let owner, og;
     let peth = ethers.parseEther;
     let feth = ethers.formatEther;
-    const Z = "0x0000000000000000000000000000000000000000";
     before(async function () {
         [owner,] = await ethers.getSigners();
         let AlienFlip = await ethers.getContractFactory("NounsAlien");
