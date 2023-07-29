@@ -44,7 +44,7 @@ contract NounsAlien {
     *    after 90 days since deployment of this contract.
     */
     function returnStETH() external {
-        if (deployedAt < block.timestamp - uint64(TIMEOUT)) {
+        if (block.timestamp - deployedAt > TIMEOUT) {
             require(
                 stETH.transfer(nounsDao, stETH.balanceOf(address(this))),
                 "failed to send stETH"
