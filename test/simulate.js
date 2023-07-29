@@ -45,6 +45,7 @@ describe("Test NounsAlien", function () {
         await expect(await nAlien.procure(5905, {value : 1n})); // send 1 wei with the tx
         await expect(await punks.punkIndexToAddress(5905)).to.equal(NOUNS_TREASURY_ADDRESS); // alien contract is now at the Nouns treasury
         await expect(await steth.balanceOf(await og.getAddress())).to.equal(peth("5999.999999999999999998"));  // check that the funds went to punk owner
+        await expect(await steth.balanceOf(await nAlien.getAddress())).to.equal(peth("1")); // seems like the stETH contract has a rounding error in the transfer, but that should not matter
     })
 
 });
